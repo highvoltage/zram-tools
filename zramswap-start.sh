@@ -6,14 +6,6 @@
 #  * Space is assigned to each zram device, then swap is initialized on
 #    there
 
-# BUG: this script currently assumes that it's the only thing using ZRAM,
-#      and will fall over when a ZRAM device is already configured.
-
-# Add to config...
-#cores=...
-#percentage=...
-#ammount?=...
-
 ASSIGNED_ZRAM_SWAP=1000 # Swap you want assigned in MiB
 ASSIGNED_ZRAM_SWAP=$((ASSIGNED_ZRAM_SWAP * 1000 * 1000)) #turn amount into MiB
 
