@@ -1,1 +1,0 @@
-Remember, when adding support for compressed ramdrives for things like /tmp, that the discard flag is useful for ext4 filesystems.
