@@ -24,7 +24,7 @@ if [ -f /etc/default/zramswap ]; then
     . /etc/default/zramswap
 fi
 
-ALLOCATION=$((ALLOCATION * 1000 * 1000)) #turn amount into MiB
+ALLOCATION=$((ALLOCATION * 1024 * 1024)) # convert amount from MiB to bytes
 
 # Initialize zram devices, one device per CPU core
 modprobe zram num_devices=$cores
