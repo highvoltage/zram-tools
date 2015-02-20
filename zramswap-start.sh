@@ -24,7 +24,12 @@ if [ -f /etc/default/zramswap ]; then
     . /etc/default/zramswap
 fi
 
-ALLOCATION=$((ALLOCATION * 1000 * 1000)) #turn amount into MiB
+ALLOCATION=$((ALLOCATION * 1024 * 1024)) # convert amount from MiB to bytes
+
+if [ -n "$PERCENTAGE" ]; then
+    totalmemory=$(awk '/MemTotal/{print $2}' /proc/meminfo) # in KiB
+    ALLOCATION=$((totalmemory * 1024 * $PERCENTAGE / 100))
+fi
 
 # Initialize zram devices, one device per CPU core
 modprobe zram num_devices=$cores
