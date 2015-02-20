@@ -16,6 +16,10 @@ zramswap-stop
 
 Removes all current zram swap spaces and devices.
 
+zramswap-stat
+-------------
+
+shows information on data stored in zram swap.
 
 /etc/default/zramswap
 ---------------------
