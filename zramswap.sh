@@ -1,81 +1,91 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 # This script does the following:
+
 # zramswap start:
-#  * Create one ZRAM device and activate max_comp_stream accordingly to
-#    number of CPUs on the system
-#  * Space is assigned to each zram device, then swap is initialized on
-#    there
+#  Space is assigned to the zram device, then swap is initialized and enabled.
 # zramswap stop:
-#  * Somewhat potentially dangerous, removes zram module at the end
+#  Somewhat potentially dangerous, removes zram module at the end
+
+# https://github.com/torvalds/linux/blob/master/Documentation/blockdev/zram.txt
+
+readonly CONFIG="/etc/default/zramswap"
+readonly SWAP_DEV="/dev/zram0"
+
+if command -v logger >/dev/null; then
+    function elog {
+        logger -s "Error: $*"
+        exit 1
+    }
+
+    function wlog {
+        logger -s "$*"
+    }
+else
+    function elog {
+        echo "Error: $*"
+        exit 1
+    }
+
+    function wlog {
+        echo "$*"
+    }
+fi
 
 function start {
-    #Set some defaults:
-    ALLOCATION=256 # ZRAM Swap you want assigned, in MiB
-    PRIORITY=100   # Swap priority, see swapon(2) for more details
+    wlog "Starting Zram"
 
-    # Get amount of available CPU cores, set to 1 if not detected correctly
-    if [ ! -f /proc/cpuinfo ]; then
-        echo "WARNING: Can't find /proc/cpuinfo, is proc mounted?"
-        echo "         Using a single core for zramswap..."
-        CORES=1
-    else
-        CORES=$(grep -c processor /proc/cpuinfo)
+    # Load config
+    test -r "${CONFIG}" || wlog "Cannot read config from ${CONFIG} continuing with defaults."
+    source "${CONFIG}" 2>/dev/null
+
+    # Set defaults if not specified
+    : "${ALGO:=lz4}" "${SIZE:=256}" "${PRIORITY:=100}"
+
+    SIZE=$((SIZE * 1024 * 1024)) # convert amount from MiB to bytes
+
+    # Prefer percent if it is set
+    if [ -n "${PERCENT}" ]; then
+        readonly TOTAL_MEMORY=$(awk '/MemTotal/{print $2}' /proc/meminfo) # in KiB
+        readonly SIZE="$((TOTAL_MEMORY * 1024 * PERCENT / 100))"
     fi
 
-    # Override  above from config file, if it exists
-    if [ -f /etc/default/zramswap ]; then
-        . /etc/default/zramswap
-    fi
-
-    ALLOCATION=$((ALLOCATION * 1024 * 1024)) # convert amount from MiB to bytes
-
-    if [ -n "$PERCENTAGE" ]; then
-        totalmemory=$(awk '/MemTotal/{print $2}' /proc/meminfo) # in KiB
-        ALLOCATION=$((totalmemory * 1024 * PERCENTAGE / 100))
-    fi
-
-    # Initialize zram devices, one device per CPU core
-    modprobe zram num_devices=1
-        # Use multiple cores
-        echo "$CORES" > /sys/block/zram0/max_comp_streams
-        echo "$ALLOCATION" > /sys/block/zram0/disksize
-        mkswap /dev/zram0
-        swapon -p "$PRIORITY" /dev/zram0
-
+    modprobe zram || elog "inserting the zram kernel module"
+    echo -n "${ALGO}" > /sys/block/zram0/comp_algorithm || elog "setting compression algo to ${ALGO}"
+    echo -n "${SIZE}" > /sys/block/zram0/disksize || elog "setting zram device size to ${SIZE}"
+    mkswap "${SWAP_DEV}" || elog "initialising swap device"
+    swapon -p "${PRIORITY}" "${SWAP_DEV}" || elog "enablng swap device"
 }
 
 function status {
-    for f in /sys/block/zram*/*_data_size ; do
-        read -r size < "$f"
-        what=$(basename "$f")
-        eval "$what=\$(($what + $size))"
-    done
-    echo "compr_data_size: $((compr_data_size / 1024)) KiB"
-    echo "orig_data_size:  $((orig_data_size  / 1024)) KiB"
-    echo "print \"compression-ratio: \"; scale=2; $orig_data_size / $compr_data_size" | bc
+    test -x "$(which zramctl)" || elog "install zramctl for this feature"
+    test -b "${SWAP_DEV}" || elog "${SWAP_DEV} doesn't exist"
+    # old zramctl doesnt have --output-all
+    #zramctl --output-all
+    zramctl "${SWAP_DEV}"
 }
 
 function stop {
-    for swapspace in $(swapon -s | awk '/zram/{print $1}'); do
-        swapoff "$swapspace"
-    done
-    modprobe -r zram
+    wlog "Stopping Zram"
+    test -b "${SWAP_DEV}" || wlog "${SWAP_DEV} doesn't exist"
+    swapoff "${SWAP_DEV}" 2>/dev/null || wlog "disabling swap device: ${SWAP_DEV}"
+    modprobe -r zram || elog "removing zram module from kernel"
 }
 
 function usage {
-    echo "Usage:"
-    echo "   zramswap start - start zram swap"
-    echo "   zramswap stop - stop zram swap"
-    echo "   zramswap status - prints some statistics"
+    cat << EOF
+
+Usage:
+    zramswap (start|stop|restart|status)
+
+EOF
 }
 
-if [ "$1" = "start" ]; then
-    start
-elif [ "$1" = "stop" ]; then
-    stop
-elif [ "$1" = "status" ]; then
-    status
-elif [ "$1" = "" ]; then
-    usage
-else echo "unknown option: $1";
-fi
+case "$1" in
+    start)      start;;
+    stop)       stop;;
+    restart)    stop && start;;
+    status)     status;;
+    "")         usage;;
+    *)          elog "Uknown option $1";;
+esac

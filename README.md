@@ -1,25 +1,22 @@
 zram-tools
 ==========
 
-Scripts for managing zram devices, currently only for zramswap.
+Scripts for managing zram device, currently only for zramswap.
 
 zramswap start
 --------------
 
-Sets up zram devices and initializes swap. zram doesn't natively support
-multiple processors, so by default a zram device is set up for every
-core and then swap is initialized on those devices. This is configurable
-in the zramswap config file.
+Sets up zram device and initializes swap.
 
 zramswap stop
 -------------
 
-Removes all current zram swap spaces and devices.
+Removes current zram swap space and device.
 
 zramswap status
 ---------------
 
-shows information on data stored in zram swap.
+Shows information on data stored in zram swap.
 
 /etc/default/zramswap
 ---------------------
