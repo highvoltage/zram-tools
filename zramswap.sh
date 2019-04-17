@@ -54,13 +54,13 @@ function start {
     echo -n "${ALGO}" > /sys/block/zram0/comp_algorithm || elog "setting compression algo to ${ALGO}"
     echo -n "${SIZE}" > /sys/block/zram0/disksize || elog "setting zram device size to ${SIZE}"
     mkswap "${SWAP_DEV}" || elog "initialising swap device"
-    swapon -p "${PRIORITY}" "${SWAP_DEV}" || elog "enablng swap device"
+    swapon -p "${PRIORITY}" "${SWAP_DEV}" || elog "enabling swap device"
 }
 
 function status {
     test -x "$(which zramctl)" || elog "install zramctl for this feature"
     test -b "${SWAP_DEV}" || elog "${SWAP_DEV} doesn't exist"
-    # old zramctl doesnt have --output-all
+    # old zramctl doesn't have --output-all
     #zramctl --output-all
     zramctl "${SWAP_DEV}"
 }
@@ -87,5 +87,5 @@ case "$1" in
     restart)    stop && start;;
     status)     status;;
     "")         usage;;
-    *)          elog "Uknown option $1";;
+    *)          elog "Unknown option $1";;
 esac
